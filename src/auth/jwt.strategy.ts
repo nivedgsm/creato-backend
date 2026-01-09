@@ -33,7 +33,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   // ❗ DO NOT block disabled users here
   return {
-    userId: user.id,
+    id: user.id,
     role: user.role,
     isActive: user.isActive, // pass it forward
   };

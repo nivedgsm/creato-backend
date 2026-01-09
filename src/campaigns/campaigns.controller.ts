@@ -7,6 +7,7 @@ import {
   Get,
   Param,
   Query,
+   BadRequestException
 } from '@nestjs/common';
 import { CampaignsService } from './campaigns.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -14,12 +15,15 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CreateBrandCampaignDto } from './dto/create-brand-campaign.dto';
 import type { AuthRequest } from '../auth/auth-request.interface';
+import { PrismaService } from '../prisma/prisma.service'
+
 
 @Controller('campaigns')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CampaignsController {
   constructor(
     private readonly campaignsService: CampaignsService,
+    private readonly prisma: PrismaService 
   ) {}
 
   // =====================================================
@@ -141,6 +145,36 @@ export class CampaignsController {
       req.user.userId,
     );
   }
+@Post(':id/submit-reel')
+@Roles('CREATOR')
+async submitReel(
+  @Param('id') campaignId: string,
+  @Req() req,
+  @Body() body
+) {
+  const { igUrl, igMediaId } = body
+
+  if (!igUrl || !igMediaId) {
+    throw new BadRequestException('Missing igUrl or igMediaId')
+  }
+
+  return this.prisma.reelSubmission.create({
+    data: {
+      igUrl,
+      igMediaId,
+      status: 'TRACKING',
+
+      // 👇 RELATIONS MUST BE CONNECTED LIKE THIS
+      campaign: {
+        connect: { id: campaignId }
+      },
+      creator: {
+        connect: { id: req.user.id }
+      }
+    }
+  })
+}
+
 
   // =====================================================
   // BRAND — Application moderation
