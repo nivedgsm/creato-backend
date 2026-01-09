@@ -54,14 +54,26 @@ const ADMIN_CAMPAIGN_SELECT = {
   createdAt: true,
 
   requiresAdminApproval: true,
+  requiresCreatorApproval: true,
   applicationRequirement: true,
   participationType: true,
 
   budget: true,
-  payoutPer100kViews: true,
-  totalBudget: true,
-  googleDriveLink: true,
+
+  brand: {
+    select: {
+      id: true,
+      email: true,
+    },
+  },
+
+  _count: {
+    select: {
+      applications: true,
+    },
+  },
 };
+
 
 type CampaignWithMyApplication =
   Prisma.CampaignGetPayload<{
@@ -79,33 +91,45 @@ export class CampaignsService {
   /* ===============================
      BRAND: Create campaign
   =============================== */
-  async createCampaign(
-    brandId: string,
-    dto: CreateBrandCampaignDto,
-  ) {
-    return this.prisma.campaign.create({
-      data: {
-        title: dto.title,
-        description: dto.description,
-        brandId,
+async createCampaign(
+  brandId: string,
+  dto: CreateBrandCampaignDto,
+) {
+  return this.prisma.campaign.create({
+    data: {
+      title: dto.title,
+      description: dto.description,
+      brandId,
 
-        requirements: dto.requirements,
-        budget: dto.budget,
+      requirements: dto.requirements,
+      budget: dto.budget,
 
-        requiresCreatorApproval:
-          dto.requiresCreatorApproval ?? false,
+      // 💰 Monetization
+      payoutPer100kViews: dto.payoutPer100kViews,
+      totalBudget: dto.totalBudget,
 
-        applicationRequirement:
-          dto.applicationRequirement ?? 'OPEN',
+      // 🔗 Asset links
+      googleDriveLink: dto.googleDriveLink,
+      megaLink: dto.megaLink,
+      youtubeLink: dto.youtubeLink,
+      instagramLink: dto.instagramLink,
+      otherLinks: dto.otherLinks,
 
-        participationType:
-          dto.participationType ?? 'APPROVAL_REQUIRED',
+      requiresCreatorApproval:
+        dto.requiresCreatorApproval ?? false,
 
-        requiresAdminApproval: true,
-        status: 'DRAFT',
-      },
-    });
-  }
+      applicationRequirement:
+        dto.applicationRequirement ?? 'OPEN',
+
+      participationType:
+        dto.participationType ?? 'APPROVAL_REQUIRED',
+
+      requiresAdminApproval: true,
+      status: 'DRAFT',
+    },
+  });
+}
+
 
   /* ===============================
      ROLE-BASED CAMPAIGN LISTING
@@ -207,69 +231,77 @@ export class CampaignsService {
   /* ===============================
      CREATOR: Apply to campaign
   =============================== */
-  async applyToCampaign(campaignId: string, creatorId: string) {
-    if (!creatorId) {
-      throw new UnauthorizedException('Invalid token');
-    }
-
-    const campaign = await this.prisma.campaign.findUnique({
-      where: { id: campaignId },
-    });
-
-    if (!campaign) {
-      throw new NotFoundException('Campaign not found');
-    }
-
-    if (campaign.status !== 'ACTIVE') {
-      throw new BadRequestException(
-        'You can only apply to active campaigns',
-      );
-    }
-
-    const creator = await this.prisma.user.findUnique({
-      where: { id: creatorId },
-      include: { creatorProfile: true },
-    });
-
-    if (!creator || creator.role !== 'CREATOR') {
-      throw new ForbiddenException('Only creators can apply');
-    }
-
-    if (!creator.isActive) {
-      throw new ForbiddenException('Account is disabled');
-    }
-
-    if (!creator.creatorProfile) {
-      throw new BadRequestException(
-        'Creator profile required',
-      );
-    }
-
-    if (
-      campaign.applicationRequirement === 'VERIFIED_ONLY' &&
-      !creator.creatorProfile.isVerified
-    ) {
-      throw new ForbiddenException(
-        'Only verified creators can apply',
-      );
-    }
-
-    try {
-      return await this.prisma.campaignApplication.create({
-        data: {
-          campaignId,
-          creatorId,
-        },
-      });
-    } catch (error: any) {
-      if (error.code === 'P2002') {
-        throw new ConflictException(
-          'You have already applied',
-        );
-      }
-      throw error;
-    }
+async applyToCampaign(campaignId: string, creatorId: string) {
+  if (!creatorId) {
+    throw new UnauthorizedException('Invalid token');
   }
+
+  const campaign = await this.prisma.campaign.findUnique({
+    where: { id: campaignId },
+  });
+
+  if (!campaign) {
+    throw new NotFoundException('Campaign not found');
+  }
+
+  if (campaign.status !== 'ACTIVE') {
+    throw new BadRequestException(
+      'You can only apply to active campaigns',
+    );
+  }
+
+  const creator = await this.prisma.user.findUnique({
+    where: { id: creatorId },
+    include: { creatorProfile: true },
+  });
+
+  if (!creator || creator.role !== 'CREATOR') {
+    throw new ForbiddenException('Only creators can apply');
+  }
+
+  if (!creator.isActive) {
+    throw new ForbiddenException('Account is disabled');
+  }
+
+  if (!creator.creatorProfile) {
+    throw new BadRequestException(
+      'Creator profile required',
+    );
+  }
+
+  // 🔒 Eligibility check
+  if (
+    campaign.applicationRequirement === 'VERIFIED_ONLY' &&
+    !creator.creatorProfile.isVerified
+  ) {
+    throw new ForbiddenException(
+      'Only verified creators can apply',
+    );
+  }
+
+  try {
+    // 🔥 OPEN campaigns auto-approve creators
+    const status =
+      campaign.participationType === 'OPEN'
+        ? 'APPROVED'
+        : 'PENDING';
+
+    return await this.prisma.campaignApplication.create({
+      data: {
+        campaignId,
+        creatorId,
+        status,
+      },
+    });
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      throw new ConflictException(
+        'You have already applied',
+      );
+    }
+    throw error;
+  }
+}
 
   /* ===============================
      ADMIN: Status updates
@@ -400,4 +432,27 @@ export class CampaignsService {
       });
     });
   }
+
+
+
+  /* ===============================
+   BRAND: Single campaign
+=============================== */
+async getCampaignByIdForBrand(
+  campaignId: string,
+  brandId: string,
+) {
+  const campaign = await this.prisma.campaign.findUnique({
+    where: { id: campaignId },
+    include: BRAND_CAMPAIGN_INCLUDE,
+  });
+
+  if (!campaign || campaign.brandId !== brandId) {
+    throw new ForbiddenException('Access denied');
+  }
+
+  return campaign;
+}
+
+
 }

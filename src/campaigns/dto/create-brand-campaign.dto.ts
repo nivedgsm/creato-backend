@@ -26,17 +26,10 @@ export class CreateBrandCampaignDto {
   // Budget & payout
   // ===============================
 
-  /**
-   * Human-readable budget (e.g. "₹50,000 – ₹1,00,000")
-   * Optional display field
-   */
   @IsOptional()
   @IsString()
   budget?: string;
 
-  /**
-   * Numeric payout model
-   */
   @IsOptional()
   @IsNumber()
   payoutPer100kViews?: number;
@@ -52,6 +45,22 @@ export class CreateBrandCampaignDto {
   @IsOptional()
   @IsUrl()
   googleDriveLink?: string;
+
+  @IsOptional()
+  @IsUrl()
+  megaLink?: string;
+
+  @IsOptional()
+  @IsUrl()
+  youtubeLink?: string;
+
+  @IsOptional()
+  @IsUrl()
+  instagramLink?: string;
+
+  @IsOptional()
+  @IsString()
+  otherLinks?: string;
 
   // ===============================
   // Participation rules

@@ -169,4 +169,20 @@ export class CampaignsController {
       req.user.userId,
     );
   }
+
+
+
+  @Get('brand/:id')
+@Roles('BRAND')
+getBrandCampaignById(
+  @Param('id') id: string,
+  @Req() req: AuthRequest,
+) {
+  return this.campaignsService.getCampaignByIdForBrand(
+    id,
+    req.user.userId,
+  );
+}
+
+
 }

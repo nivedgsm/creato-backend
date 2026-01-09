@@ -73,26 +73,29 @@ model Campaign {
   requirements String?
   budget       String?
 
+  // 🔥 Performance monetization
+  payoutPer100kViews Float?
+  totalBudget        Float?
+
+  // 🔗 Brand assets & references
+  googleDriveLink String?
+  megaLink        String?
+  youtubeLink     String?
+  instagramLink   String?
+  otherLinks      String?
+
   status CampaignStatus @default(DRAFT)
 
-  // Moderation & flow control
   requiresAdminApproval   Boolean @default(true)
   requiresCreatorApproval Boolean @default(false)
 
-  // Creator eligibility
-  applicationRequirement ApplicationRequirement @default(OPEN)
+  applicationRequirement ApplicationRequirement    @default(OPEN)
+  participationType      CampaignParticipationType @default(APPROVAL_REQUIRED)
 
-  // 🔴 NEW: participation flow
-  participationType CampaignParticipationType @default(APPROVAL_REQUIRED)
-
-  // Brand relation
   brandId String
   brand   User   @relation("BrandCampaigns", fields: [brandId], references: [id])
 
-  // Applications
-  applications CampaignApplication[]
-
-  // Audit logs
+  applications   CampaignApplication[]
   adminAuditLogs AdminAuditLog[]
 
   createdAt DateTime @default(now())
