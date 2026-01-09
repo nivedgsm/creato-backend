@@ -11,6 +11,9 @@ import { AuthModule } from './auth/auth.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { AdminModule } from './admin/admin.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { InstagramModule } from './instagram/instagram.module';
+
 
 
 
@@ -30,6 +33,8 @@ import { AdminModule } from './admin/admin.module';
       CampaignsModule,
       ProfilesModule,
       AdminModule,
+      ScheduleModule.forRoot(),
+       InstagramModule,
 
   ],
   controllers: [AppController],

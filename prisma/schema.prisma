@@ -63,6 +63,10 @@ model User {
   // Audit logs
   adminAuditLogs    AdminAuditLog[]
   targetedAuditLogs AdminAuditLog[] @relation("AdminAuditTargetUser")
+
+  // 🔥 Instagram + Reels
+  instagramAccount InstagramAccount?
+  reelSubmissions  ReelSubmission[]
 }
 
 model Campaign {
@@ -73,11 +77,9 @@ model Campaign {
   requirements String?
   budget       String?
 
-  // 🔥 Performance monetization
   payoutPer100kViews Float?
   totalBudget        Float?
 
-  // 🔗 Brand assets & references
   googleDriveLink String?
   megaLink        String?
   youtubeLink     String?
@@ -95,8 +97,9 @@ model Campaign {
   brandId String
   brand   User   @relation("BrandCampaigns", fields: [brandId], references: [id])
 
-  applications   CampaignApplication[]
-  adminAuditLogs AdminAuditLog[]
+  applications    CampaignApplication[]
+  adminAuditLogs  AdminAuditLog[]
+  reelSubmissions ReelSubmission[]
 
   createdAt DateTime @default(now())
 }
@@ -144,7 +147,6 @@ model CreatorProfile {
   twitterUrl   String?
   websiteUrl   String?
 
-  // Verification
   isVerified Boolean @default(false)
 
   createdAt DateTime @default(now())
@@ -184,12 +186,10 @@ model AdminAuditLog {
   adminId String
   action  AdminActionType
 
-  // Campaign-related
   campaignId     String?
   previousStatus CampaignStatus?
   newStatus      CampaignStatus?
 
-  // User-related
   targetUserId String?
 
   createdAt DateTime @default(now())
@@ -203,3 +203,52 @@ model AdminAuditLog {
   @@index([targetUserId])
   @@index([createdAt])
 }
+
+model InstagramAccount {
+  id          String @id
+  username    String
+  accessToken String
+
+  userId String @unique // 👈 THIS fixes it
+  user   User   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model ReelSubmission {
+  id         String @id @default(uuid())
+  campaignId String
+  creatorId  String
+
+  igMediaId String
+  igUrl     String
+
+  status String @default("TRACKING")
+
+  views      Int @default(0)
+  reach      Int @default(0)
+  likes      Int @default(0)
+  comments   Int @default(0)
+  videoPlays Int @default(0)
+
+  lastSyncedAt DateTime?
+  createdAt    DateTime  @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  creator  User     @relation(fields: [creatorId], references: [id])
+
+  @@unique([campaignId, creatorId, igMediaId])
+}
+
+
+model CampaignSlab {
+  id         String   @id @default(uuid())
+  campaignId String
+  views      Int      // eg 5000, 25000, 100000
+  payout     Int      // eg 500, 2000, 6000
+
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+
+  @@unique([campaignId, views])
+}
+
