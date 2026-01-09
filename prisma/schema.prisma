@@ -1,0 +1,202 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CREATOR
+  BRAND
+  ADMIN
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ApplicationRequirement {
+  OPEN
+  VERIFIED_ONLY
+}
+
+enum CampaignParticipationType {
+  OPEN
+  APPROVAL_REQUIRED
+}
+
+enum AdminActionType {
+  CAMPAIGN_APPROVED
+  CAMPAIGN_CANCELLED
+  USER_DISABLED
+  USER_ENABLED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      Role     @default(CREATOR)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  // Brand → Campaigns
+  campaigns Campaign[] @relation("BrandCampaigns")
+
+  // Creator → Applications
+  applications CampaignApplication[] @relation("CreatorApplications")
+
+  // Profiles
+  creatorProfile CreatorProfile?
+  brandProfile   BrandProfile?
+
+  // Audit logs
+  adminAuditLogs    AdminAuditLog[]
+  targetedAuditLogs AdminAuditLog[] @relation("AdminAuditTargetUser")
+}
+
+model Campaign {
+  id          String @id @default(uuid())
+  title       String
+  description String
+
+  requirements String?
+  budget       String?
+
+  status CampaignStatus @default(DRAFT)
+
+  // Moderation & flow control
+  requiresAdminApproval   Boolean @default(true)
+  requiresCreatorApproval Boolean @default(false)
+
+  // Creator eligibility
+  applicationRequirement ApplicationRequirement @default(OPEN)
+
+  // 🔴 NEW: participation flow
+  participationType CampaignParticipationType @default(APPROVAL_REQUIRED)
+
+  // Brand relation
+  brandId String
+  brand   User   @relation("BrandCampaigns", fields: [brandId], references: [id])
+
+  // Applications
+  applications CampaignApplication[]
+
+  // Audit logs
+  adminAuditLogs AdminAuditLog[]
+
+  createdAt DateTime @default(now())
+}
+
+model CampaignApplication {
+  id String @id @default(uuid())
+
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+
+  creatorId String
+  creator   User   @relation("CreatorApplications", fields: [creatorId], references: [id])
+
+  status ApplicationStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+
+  @@unique([campaignId, creatorId])
+}
+
+model CreatorProfile {
+  id String @id @default(uuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  displayName     String
+  username        String
+  profileImageUrl String?
+
+  bio      String
+  category String
+
+  primaryPlatform String
+  followersCount  Int
+  avgViews        Int?
+  engagementRate  Float?
+
+  country  String
+  city     String?
+  language String
+
+  instagramUrl String?
+  youtubeUrl   String?
+  twitterUrl   String?
+  websiteUrl   String?
+
+  // Verification
+  isVerified Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BrandProfile {
+  id String @id @default(uuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  brandName  String
+  logoUrl    String?
+  websiteUrl String?
+
+  description String
+  industry    String
+
+  companySize String
+  foundedYear Int?
+
+  contactEmail      String
+  contactPersonName String?
+
+  country String
+  city    String?
+
+  verified Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdminAuditLog {
+  id      String          @id @default(uuid())
+  adminId String
+  action  AdminActionType
+
+  // Campaign-related
+  campaignId     String?
+  previousStatus CampaignStatus?
+  newStatus      CampaignStatus?
+
+  // User-related
+  targetUserId String?
+
+  createdAt DateTime @default(now())
+
+  admin      User      @relation(fields: [adminId], references: [id])
+  campaign   Campaign? @relation(fields: [campaignId], references: [id])
+  targetUser User?     @relation("AdminAuditTargetUser", fields: [targetUserId], references: [id])
+
+  @@index([adminId])
+  @@index([campaignId])
+  @@index([targetUserId])
+  @@index([createdAt])
+}
