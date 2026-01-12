@@ -7,6 +7,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/* =======================
+   ENUMS
+======================= */
+
 enum Role {
   CREATOR
   BRAND
@@ -42,6 +46,29 @@ enum AdminActionType {
   USER_ENABLED
 }
 
+enum ReelStatus {
+  PENDING
+  TRACKING
+  PAID
+  REJECTED
+}
+
+enum WalletTransactionType {
+  SLAB_EARNED
+  SLAB_REVERSED
+  WITHDRAWAL
+}
+
+enum WalletTxStatus {
+  PENDING
+  CLEARED
+  REVERSED
+}
+
+/* =======================
+   USERS
+======================= */
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -50,24 +77,23 @@ model User {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  // Brand → Campaigns
-  campaigns Campaign[] @relation("BrandCampaigns")
-
-  // Creator → Applications
+  campaigns    Campaign[]            @relation("BrandCampaigns")
   applications CampaignApplication[] @relation("CreatorApplications")
 
-  // Profiles
   creatorProfile CreatorProfile?
   brandProfile   BrandProfile?
 
-  // Audit logs
   adminAuditLogs    AdminAuditLog[]
   targetedAuditLogs AdminAuditLog[] @relation("AdminAuditTargetUser")
 
-  // 🔥 Instagram + Reels
   instagramAccount InstagramAccount?
   reelSubmissions  ReelSubmission[]
+  wallet           Wallet?
 }
+
+/* =======================
+   CAMPAIGNS
+======================= */
 
 model Campaign {
   id          String @id @default(uuid())
@@ -77,8 +103,9 @@ model Campaign {
   requirements String?
   budget       String?
 
-  payoutPer100kViews Float?
-  totalBudget        Float?
+  totalBudget Float
+  platformFee Float
+  creatorPool Float
 
   googleDriveLink String?
   megaLink        String?
@@ -95,14 +122,35 @@ model Campaign {
   participationType      CampaignParticipationType @default(APPROVAL_REQUIRED)
 
   brandId String
-  brand   User   @relation("BrandCampaigns", fields: [brandId], references: [id])
+  brand   User @relation("BrandCampaigns", fields: [brandId], references: [id])
 
   applications    CampaignApplication[]
   adminAuditLogs  AdminAuditLog[]
   reelSubmissions ReelSubmission[]
+  slabs           CampaignSlab[] @relation("CampaignSlabs")
 
   createdAt DateTime @default(now())
 }
+
+/* =======================
+   SLABS
+======================= */
+
+model CampaignSlab {
+  id         String @id @default(uuid())
+  campaignId String
+
+  views  Int
+  payout Int
+
+  campaign Campaign @relation("CampaignSlabs", fields: [campaignId], references: [id])
+
+  @@unique([campaignId, views])
+}
+
+/* =======================
+   APPLICATIONS
+======================= */
 
 model CampaignApplication {
   id String @id @default(uuid())
@@ -111,7 +159,7 @@ model CampaignApplication {
   campaign   Campaign @relation(fields: [campaignId], references: [id])
 
   creatorId String
-  creator   User   @relation("CreatorApplications", fields: [creatorId], references: [id])
+  creator   User @relation("CreatorApplications", fields: [creatorId], references: [id])
 
   status ApplicationStatus @default(PENDING)
 
@@ -119,6 +167,41 @@ model CampaignApplication {
 
   @@unique([campaignId, creatorId])
 }
+
+/* =======================
+   REELS
+======================= */
+model ReelSubmission {
+  id         String @id @default(uuid())
+  campaignId String
+  creatorId  String
+
+  igMediaId String?
+  igUrl     String?
+
+  status     ReelStatus @default(PENDING)
+
+  videoPlays Int      @default(0)   // 👈 correct metric
+  reach      Int      @default(0)
+  likes      Int      @default(0)
+  comments   Int      @default(0)
+  earnings   Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  creator  User     @relation(fields: [creatorId], references: [id])
+
+  walletTransactions WalletTransaction[]
+
+  @@unique([igMediaId])
+}
+
+
+/* =======================
+   PROFILES
+======================= */
 
 model CreatorProfile {
   id String @id @default(uuid())
@@ -129,9 +212,8 @@ model CreatorProfile {
   displayName     String
   username        String
   profileImageUrl String?
-
-  bio      String
-  category String
+  bio             String
+  category        String
 
   primaryPlatform String
   followersCount  Int
@@ -162,7 +244,6 @@ model BrandProfile {
   brandName  String
   logoUrl    String?
   websiteUrl String?
-
   description String
   industry    String
 
@@ -181,8 +262,12 @@ model BrandProfile {
   updatedAt DateTime @updatedAt
 }
 
+/* =======================
+   ADMIN AUDIT
+======================= */
+
 model AdminAuditLog {
-  id      String          @id @default(uuid())
+  id      String @id @default(uuid())
   adminId String
   action  AdminActionType
 
@@ -204,51 +289,53 @@ model AdminAuditLog {
   @@index([createdAt])
 }
 
+/* =======================
+   INSTAGRAM
+======================= */
+
 model InstagramAccount {
   id          String @id
   username    String
   accessToken String
 
-  userId String @unique // 👈 THIS fixes it
+  userId String @unique
   user   User   @relation(fields: [userId], references: [id])
 
   createdAt DateTime @default(now())
 }
 
-model ReelSubmission {
-  id         String @id @default(uuid())
-  campaignId String
-  creatorId  String
+/* =======================
+   WALLETS
+======================= */
 
-  igMediaId String
-  igUrl     String
+model Wallet {
+  id      String @id @default(uuid())
+  userId  String @unique
+  balance Int    @default(0)
+  pending Int    @default(0)
 
-  status String @default("TRACKING")
+  user User @relation(fields: [userId], references: [id])
 
-  views      Int @default(0)
-  reach      Int @default(0)
-  likes      Int @default(0)
-  comments   Int @default(0)
-  videoPlays Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  lastSyncedAt DateTime?
-  createdAt    DateTime  @default(now())
-
-  campaign Campaign @relation(fields: [campaignId], references: [id])
-  creator  User     @relation(fields: [creatorId], references: [id])
-
-  @@unique([campaignId, creatorId, igMediaId])
+  walletTransactions WalletTransaction[]
 }
 
+model WalletTransaction {
+  id       String @id @default(uuid())
+  walletId String
+  reelId   String?
 
-model CampaignSlab {
-  id         String   @id @default(uuid())
-  campaignId String
-  views      Int      // eg 5000, 25000, 100000
-  payout     Int      // eg 500, 2000, 6000
+  amount Int
+  type   WalletTransactionType
+  status WalletTxStatus
 
-  campaign   Campaign @relation(fields: [campaignId], references: [id])
+  wallet Wallet          @relation(fields: [walletId], references: [id])
+  reel   ReelSubmission? @relation(fields: [reelId], references: [id])
 
-  @@unique([campaignId, views])
+  createdAt DateTime @default(now())
+
+  @@index([walletId])
+  @@index([reelId])
 }
-

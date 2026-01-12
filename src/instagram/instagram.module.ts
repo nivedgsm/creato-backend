@@ -11,7 +11,7 @@ import { ReelSyncScheduler } from './reel-sync.scheduler'
     InstagramService,
     InstagramCron,
     PrismaService,
-    ReelSyncScheduler
+    ReelSyncScheduler,
   ]
 })
 export class InstagramModule {}

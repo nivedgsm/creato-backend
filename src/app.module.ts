@@ -13,6 +13,8 @@ import { ProfilesModule } from './profiles/profiles.module';
 import { AdminModule } from './admin/admin.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { InstagramModule } from './instagram/instagram.module';
+import { WalletModule } from './wallet/wallet.module'
+
 
 
 
@@ -35,6 +37,7 @@ import { InstagramModule } from './instagram/instagram.module';
       AdminModule,
       ScheduleModule.forRoot(),
        InstagramModule,
+       WalletModule,
 
   ],
   controllers: [AppController],
