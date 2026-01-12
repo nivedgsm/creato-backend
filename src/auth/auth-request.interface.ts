@@ -20,8 +20,9 @@ import { Request } from 'express';
 
 export interface AuthRequest extends Request {
   user: {
-    userId: string;
-    role: 'CREATOR' | 'BRAND' | 'ADMIN';
-  };
+    userId: string
+    role: 'CREATOR' | 'BRAND' | 'ADMIN'
+  }
 }
+
 

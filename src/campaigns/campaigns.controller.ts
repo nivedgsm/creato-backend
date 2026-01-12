@@ -16,6 +16,8 @@ import { Roles } from '../auth/roles.decorator';
 import { CreateBrandCampaignDto } from './dto/create-brand-campaign.dto';
 import type { AuthRequest } from '../auth/auth-request.interface';
 import { PrismaService } from '../prisma/prisma.service'
+import { CreateCampaignSlabDto }  from './dto/create-campaign-slab.dto'
+
 
 
 @Controller('campaigns')
@@ -145,33 +147,33 @@ export class CampaignsController {
       req.user.userId,
     );
   }
+
+
 @Post(':id/submit-reel')
 @Roles('CREATOR')
 async submitReel(
   @Param('id') campaignId: string,
-  @Req() req,
-  @Body() body
+  @Req() req: AuthRequest,
+  @Body() body: { igUrl?: string; igMediaId?: string }
 ) {
   const { igUrl, igMediaId } = body
 
-  if (!igUrl || !igMediaId) {
+  if (!igUrl && !igMediaId) {
     throw new BadRequestException('Missing igUrl or igMediaId')
   }
 
   return this.prisma.reelSubmission.create({
     data: {
-      igUrl,
       igMediaId,
+      igUrl,
       status: 'TRACKING',
-
-      // 👇 RELATIONS MUST BE CONNECTED LIKE THIS
       campaign: {
-        connect: { id: campaignId }
+        connect: { id: campaignId },
       },
       creator: {
-        connect: { id: req.user.id }
-      }
-    }
+        connect: { id: req.user.userId }, // 🔥 MUST BE userId
+      },
+    },
   })
 }
 
@@ -217,6 +219,21 @@ getBrandCampaignById(
     req.user.userId,
   );
 }
+
+@Post(':id/slabs')
+@Roles('BRAND')
+async addSlabs(
+  @Param('id') campaignId: string,
+  @Req() req: AuthRequest,
+  @Body() dtos: CreateCampaignSlabDto[],   // 👈 array
+) {
+  return this.campaignsService.addSlabs(
+    req.user.userId,
+    campaignId,
+    dtos,
+  )
+}
+
 
 
 }

@@ -5,7 +5,9 @@ import {
   IsIn,
   IsNumber,
   IsUrl,
-} from 'class-validator';
+  Min,
+  Max,
+} from 'class-validator'
 
 export class CreateBrandCampaignDto {
   // ===============================
@@ -13,30 +15,28 @@ export class CreateBrandCampaignDto {
   // ===============================
 
   @IsString()
-  title: string;
+  title: string
 
   @IsString()
-  description: string;
+  description: string
 
   @IsOptional()
   @IsString()
-  requirements?: string;
+  requirements?: string
 
   // ===============================
-  // Budget & payout
+  // Budget & payout engine
   // ===============================
 
   @IsOptional()
   @IsString()
-  budget?: string;
+  budget?: string // e.g. "₹5L total"
 
-  @IsOptional()
   @IsNumber()
-  payoutPer100kViews?: number;
+  @Min(1000)
+  totalBudget: number // e.g. 500000
 
-  @IsOptional()
-  @IsNumber()
-  totalBudget?: number;
+
 
   // ===============================
   // Brand assets
@@ -44,23 +44,23 @@ export class CreateBrandCampaignDto {
 
   @IsOptional()
   @IsUrl()
-  googleDriveLink?: string;
+  googleDriveLink?: string
 
   @IsOptional()
   @IsUrl()
-  megaLink?: string;
+  megaLink?: string
 
   @IsOptional()
   @IsUrl()
-  youtubeLink?: string;
+  youtubeLink?: string
 
   @IsOptional()
   @IsUrl()
-  instagramLink?: string;
+  instagramLink?: string
 
   @IsOptional()
   @IsString()
-  otherLinks?: string;
+  otherLinks?: string
 
   // ===============================
   // Participation rules
@@ -68,13 +68,13 @@ export class CreateBrandCampaignDto {
 
   @IsOptional()
   @IsBoolean()
-  requiresCreatorApproval?: boolean;
+  requiresCreatorApproval?: boolean
 
   @IsOptional()
   @IsIn(['OPEN', 'VERIFIED_ONLY'])
-  applicationRequirement?: 'OPEN' | 'VERIFIED_ONLY';
+  applicationRequirement?: 'OPEN' | 'VERIFIED_ONLY'
 
   @IsOptional()
   @IsIn(['OPEN', 'APPROVAL_REQUIRED'])
-  participationType?: 'OPEN' | 'APPROVAL_REQUIRED';
+  participationType?: 'OPEN' | 'APPROVAL_REQUIRED'
 }
